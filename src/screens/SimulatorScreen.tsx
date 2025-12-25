@@ -57,7 +57,7 @@ export const SimulatorScreen: React.FC = observer(() => {
   }, [launcherStore.isInApp, launcherStore.currentAppUrl, launcherStore.isInLauncher]);
 
   // Handle button press from simulator
-  // Buttons 9=Back, 10=Home, 11=Menu are handled at native level
+  // Navigation is handled at native level, not by WebView
   const handleButtonPress = useCallback((index: number) => {
     console.log('[Simulator] Button press:', index);
     
@@ -67,19 +67,25 @@ export const SimulatorScreen: React.FC = observer(() => {
       if (launcherStore.isInApp) {
         console.log('[Simulator] Back pressed - going home');
         launcherStore.goBack();
-        return; // Don't forward to WebView
+        return;
       }
     } else if (index === 10) {
       // Home button - always go home
       if (launcherStore.isInApp) {
         console.log('[Simulator] Home pressed - going home');
         launcherStore.goHome();
-        return; // Don't forward to WebView
+        return;
       }
     }
-    // Button 11 (Menu) could be forwarded for app-specific menus
     
-    // Forward to WebView for app/launcher to handle
+    // App launch buttons (0-8): handled at native level when in launcher
+    if (index >= 0 && index <= 8 && launcherStore.isInLauncher) {
+      console.log('[Simulator] Launching app:', index);
+      launcherStore.launchApp(index);
+      // Still forward to WebView for visual feedback
+    }
+    
+    // Forward to WebView for app to handle
     webViewRef.current?.emit({
       type: 'button',
       data: { id: index, event: 'down' },
