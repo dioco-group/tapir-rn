@@ -28,7 +28,7 @@ import { deviceStore, launcherStore, terminalStore } from '../stores';
 // Constants
 // ============================================================================
 
-const DEFAULT_URL = 'https://dioco-group.github.io/tapir-miniapps/pager.html';
+const DEFAULT_URL = 'https://dioco-group.github.io/tapir-miniapps/launcher.html';
 
 // ============================================================================
 // Component
@@ -270,17 +270,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   webViewContainer: {
-    flex: 1,
+    flex: 2, // 2/3 of width
     borderRightWidth: 1,
     borderRightColor: '#313244',
   },
   simulatorContainer: {
-    width: 140,
+    flex: 1, // 1/3 of width
     backgroundColor: '#181825',
   },
   simulatorContent: {
     padding: 10,
     alignItems: 'center',
+    paddingBottom: 20,
   },
   quickActions: {
     flexDirection: 'row',

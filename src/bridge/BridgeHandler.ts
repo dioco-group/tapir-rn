@@ -131,36 +131,39 @@ class BridgeHandler {
   // ==========================================================================
 
   private async handleLed(params: LedControlParams): Promise<void> {
-    if (!deviceStore.isConnected) {
-      throw new Error('Device not connected');
-    }
-    
     const { index, r, g, b } = params;
-    await bleService.sendLedControl(index, r, g, b);
+    
+    // Only send to device if connected, but don't block simulator mode
+    if (deviceStore.isConnected) {
+      await bleService.sendLedControl(index, r, g, b);
+    }
+    // TODO: Track LED state locally for simulator display
   }
 
   private async handleTerminal(params: TerminalUpdateParams): Promise<void> {
-    if (!deviceStore.isConnected) {
-      throw new Error('Device not connected');
-    }
-    
     const { buffer, cols = 32, rows = 18 } = params;
     
     // Decode base64 buffer
     const data = Buffer.from(buffer, 'base64');
     
-    // Update terminal store and flush
+    // Always update terminal store (for simulator display)
     terminalStore.setSize(cols, rows);
     terminalStore.setBuffer(new Uint8Array(data));
-    await terminalStore.flush();
+    
+    // Only flush to device if connected
+    if (deviceStore.isConnected) {
+      await terminalStore.flush();
+    }
   }
 
   private async handleTerminalClear(): Promise<void> {
-    if (!deviceStore.isConnected) {
-      throw new Error('Device not connected');
-    }
+    // Always clear terminal store (for simulator display)
+    terminalStore.clear();
     
-    await terminalStore.clearDevice();
+    // Only send to device if connected
+    if (deviceStore.isConnected) {
+      await terminalStore.clearDevice();
+    }
   }
 
   private async handleEcho(params: { data: string }): Promise<void> {
@@ -343,6 +346,15 @@ export const BRIDGE_INJECT_JS = `
     info: () => window.tapir.call('device.info'),
     vibrate: () => window.tapir.call('device.vibrate')
   };
+  
+  // Connection state (updated by native events)
+  window.tapir._connected = false;
+  window.tapir.isConnected = function() { return window.tapir._connected; };
+  
+  // Listen for connection changes to update state
+  window.tapir.on('connectionChange', function(isConnected) {
+    window.tapir._connected = isConnected;
+  });
   
   console.log('[Tapir Bridge] Initialized');
 })();

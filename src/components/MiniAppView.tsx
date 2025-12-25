@@ -11,9 +11,10 @@
 import React, { useRef, useCallback, useImperativeHandle, forwardRef, useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
+import { reaction } from 'mobx';
 import { bridgeHandler, BRIDGE_INJECT_JS } from '../bridge';
 import { BridgeRequest, BridgeEvent } from '../types/bridge';
-import { notificationStore } from '../stores';
+import { notificationStore, deviceStore } from '../stores';
 
 // ============================================================================
 // Types
@@ -73,6 +74,33 @@ export const MiniAppView = forwardRef<MiniAppViewRef, MiniAppViewProps>(
       return () => unsubscribe();
     }, []);
 
+    // Forward connection state changes to WebView
+    useEffect(() => {
+      const disposer = reaction(
+        () => deviceStore.isConnected,
+        (isConnected) => {
+          webViewRef.current?.injectJavaScript(`
+            window.tapir._connected = ${isConnected};
+            window.tapir.emit('connectionChange', ${isConnected});
+            true;
+          `);
+        }
+      );
+      
+      return () => disposer();
+    }, []);
+
+    // Emit initial connection state when WebView loads
+    const handleLoad = useCallback(() => {
+      // Set initial connection state
+      webViewRef.current?.injectJavaScript(`
+        window.tapir._connected = ${deviceStore.isConnected};
+        window.tapir.emit('connectionChange', ${deviceStore.isConnected});
+        true;
+      `);
+      onLoad?.();
+    }, [onLoad]);
+
     // Handle messages from WebView
     const handleMessage = useCallback(async (event: WebViewMessageEvent) => {
       try {
@@ -116,7 +144,7 @@ export const MiniAppView = forwardRef<MiniAppViewRef, MiniAppViewProps>(
           style={styles.webview}
           injectedJavaScriptBeforeContentLoaded={BRIDGE_INJECT_JS}
           onMessage={handleMessage}
-          onLoad={onLoad}
+          onLoad={handleLoad}
           onError={(e) => onError?.(e.nativeEvent.description)}
           // Security settings
           javaScriptEnabled={true}
