@@ -17,7 +17,9 @@
       "bundleIdentifier": "com.tapir.runtime",
       "infoPlist": {
         "NSBluetoothAlwaysUsageDescription": "Tapir needs Bluetooth to connect to your device",
-        "UIBackgroundModes": ["bluetooth-central"]
+        "UIBackgroundModes": [
+          "bluetooth-central"
+        ]
       }
     },
     "android": {
@@ -28,6 +30,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
+      "allowBackup": false,
       "permissions": [
         "android.permission.BLUETOOTH",
         "android.permission.BLUETOOTH_ADMIN",
@@ -42,11 +45,15 @@
     },
     "plugins": [
       "expo-dev-client",
+      "./plugins/withGradleProperties.js",
       [
         "react-native-ble-plx",
         {
           "isBackgroundEnabled": true,
-          "modes": ["peripheral", "central"],
+          "modes": [
+            "peripheral",
+            "central"
+          ],
           "bluetoothAlwaysPermission": "Tapir needs Bluetooth to connect to your device"
         }
       ],
@@ -56,13 +63,21 @@
           "android": {
             "minSdkVersion": 23,
             "compileSdkVersion": 35,
-            "targetSdkVersion": 34
+            "targetSdkVersion": 34,
+            "enableProguardInReleaseBuilds": false,
+            "extraProguardRules": "",
+            "enableMinifyInReleaseBuilds": false
           },
           "ios": {
             "deploymentTarget": "15.1"
           }
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "18b12679-3676-455c-8b4a-2a19f481f557"
+      }
+    }
   }
 }

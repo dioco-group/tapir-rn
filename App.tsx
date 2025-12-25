@@ -17,6 +17,7 @@ import {
   LedTestScreen,
   MiniAppScreen,
   LauncherScreen,
+  SimulatorScreen,
   RootStackParamList,
 } from './src/screens';
 import { deviceStore, vaultStore } from './src/stores';
@@ -70,6 +71,7 @@ export default function App() {
         <Stack.Screen name="LedTest" component={LedTestScreen} />
         <Stack.Screen name="MiniApp" component={MiniAppScreen} />
         <Stack.Screen name="Launcher" component={LauncherScreen} />
+        <Stack.Screen name="Simulator" component={SimulatorScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

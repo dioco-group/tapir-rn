@@ -5,6 +5,7 @@ export { TerminalScreen } from './TerminalScreen';
 export { LedTestScreen } from './LedTestScreen';
 export { MiniAppScreen } from './MiniAppScreen';
 export { LauncherScreen } from './LauncherScreen';
+export { SimulatorScreen } from './SimulatorScreen';
 
 // Navigation types
 export type RootStackParamList = {
@@ -15,6 +16,7 @@ export type RootStackParamList = {
   LedTest: undefined;
   MiniApp: undefined;
   Launcher: undefined;
+  Simulator: undefined;
   AppConfig: { appIndex: number };
 };
 

@@ -125,6 +125,13 @@ export const HomeScreen: React.FC = observer(() => {
             color="#f9e2af"
             onPress={() => navigation.navigate('MiniApp')}
           />
+          <QuickAction
+            title="Simulator"
+            subtitle="Device preview"
+            icon="📱"
+            color="#cba6f7"
+            onPress={() => navigation.navigate('Simulator')}
+          />
         </View>
 
         {/* Device Stats (when connected) */}
