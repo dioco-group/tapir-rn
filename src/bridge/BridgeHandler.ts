@@ -46,6 +46,7 @@ class BridgeHandler {
       const result = await this.handleMethod(method, params);
       return { id, result };
     } catch (error) {
+      console.error('[Bridge] Error in', method, ':', error);
       return {
         id,
         error: {
