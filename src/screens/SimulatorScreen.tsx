@@ -6,7 +6,7 @@
  * - Right: Device simulator with live terminal
  */
 
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useRef, useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -40,6 +40,21 @@ export const SimulatorScreen: React.FC = observer(() => {
   const [url, setUrl] = useState(DEFAULT_URL);
   const [inputUrl, setInputUrl] = useState(DEFAULT_URL);
   const [ledColors, setLedColors] = useState<{ [key: number]: { r: number; g: number; b: number } }>({});
+
+  // Watch for launcher navigation
+  useEffect(() => {
+    if (launcherStore.isInApp && launcherStore.currentAppUrl) {
+      // Launching an app
+      console.log('[Simulator] Navigating to app:', launcherStore.currentAppUrl);
+      setUrl(launcherStore.currentAppUrl);
+      setInputUrl(launcherStore.currentAppUrl);
+    } else if (launcherStore.isInLauncher && url !== DEFAULT_URL) {
+      // Going back to launcher
+      console.log('[Simulator] Returning to launcher');
+      setUrl(DEFAULT_URL);
+      setInputUrl(DEFAULT_URL);
+    }
+  }, [launcherStore.isInApp, launcherStore.currentAppUrl, launcherStore.isInLauncher]);
 
   // Handle button press from simulator
   const handleButtonPress = useCallback((index: number) => {

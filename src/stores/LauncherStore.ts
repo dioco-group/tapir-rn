@@ -79,6 +79,10 @@ class LauncherStore {
     return this.state === 'launcher';
   }
 
+  get currentAppUrl(): string | null {
+    return this.activeApp?.url ?? null;
+  }
+
   get enabledApps(): AppSlot[] {
     return this.apps.filter(app => app.enabled);
   }
