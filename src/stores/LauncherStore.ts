@@ -26,7 +26,7 @@ export type LauncherState = 'launcher' | 'app';
 
 // Default app configurations
 const DEFAULT_APPS: AppSlot[] = [
-  { id: 0, name: 'Pager', icon: '📟', url: 'http://192.168.1.57:8082/pager.html', enabled: true },
+  { id: 0, name: 'Pager', icon: '📟', url: 'https://dioco-group.github.io/tapir-miniapps/pager.html', enabled: true },
   { id: 1, name: 'Clock', icon: '🕐', url: '', enabled: false },
   { id: 2, name: 'Notes', icon: '📝', url: '', enabled: false },
   { id: 3, name: 'Calc', icon: '🔢', url: '', enabled: false },
