@@ -18,6 +18,7 @@ import {
   MiniAppScreen,
   LauncherScreen,
   SimulatorScreen,
+  VoiceDebugScreen,
   RootStackParamList,
 } from './src/screens';
 import { deviceStore, vaultStore } from './src/stores';
@@ -72,6 +73,7 @@ export default function App() {
         <Stack.Screen name="MiniApp" component={MiniAppScreen} />
         <Stack.Screen name="Launcher" component={LauncherScreen} />
         <Stack.Screen name="Simulator" component={SimulatorScreen} />
+        <Stack.Screen name="VoiceDebug" component={VoiceDebugScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

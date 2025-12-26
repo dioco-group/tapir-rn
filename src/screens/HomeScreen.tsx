@@ -132,6 +132,13 @@ export const HomeScreen: React.FC = observer(() => {
             color="#cba6f7"
             onPress={() => navigation.navigate('Simulator')}
           />
+          <QuickAction
+            title="Voice Debug"
+            subtitle="PTT testing"
+            icon="🎤"
+            color="#fab387"
+            onPress={() => navigation.navigate('VoiceDebug')}
+          />
         </View>
 
         {/* Device Stats (when connected) */}

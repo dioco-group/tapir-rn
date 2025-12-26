@@ -27,6 +27,15 @@ export interface VoiceResult {
   response: string;
 }
 
+export interface VoiceClipInfo {
+  timestamp: number;
+  duration: number;       // in milliseconds
+  packetCount: number;
+  totalBytes: number;
+  sequenceGaps: number;
+  sampleRate: number;
+}
+
 // ============================================================================
 // Simple Opus Decoder Stub
 // ============================================================================
@@ -84,6 +93,15 @@ class VoiceService {
   currentSession: VoiceSession | null = null;
   lastResult: VoiceResult | null = null;
   
+  // Last recorded clip info (observable for UI)
+  lastClipInfo: VoiceClipInfo | null = null;
+  
+  // Last clip raw PCM data (for playback)
+  private lastClipPcm: Int16Array | null = null;
+  
+  // Sequence gap counter for current session
+  private sequenceGaps = 0;
+  
   // Opus decoder
   private decoder = new OpusDecoder();
   
@@ -133,6 +151,7 @@ class VoiceService {
     this.pcmBuffer = [];
     this.opusFrames = [];
     this.expectedSequence = 0;
+    this.sequenceGaps = 0;
     
     this.emit({ type: 'start' });
     this.onStateChange?.('listening');
@@ -159,8 +178,9 @@ class VoiceService {
 
     // Check for sequence gaps
     if (sequence !== this.expectedSequence) {
-      const gap = sequence - this.expectedSequence;
+      const gap = Math.abs(sequence - this.expectedSequence);
       console.warn(`[VoiceService] Sequence gap: expected ${this.expectedSequence}, got ${sequence} (gap: ${gap})`);
+      this.sequenceGaps += gap;
     }
     this.expectedSequence = (sequence + 1) & 0xFFFF;
 
@@ -196,9 +216,20 @@ class VoiceService {
 
     const session = this.currentSession;
     const duration = Date.now() - session.startTime;
-    console.log(`[VoiceService] Session: ${session.packets.length} packets, ${duration}ms`);
+    const totalBytes = this.opusFrames.reduce((sum, frame) => sum + frame.length, 0);
+    
+    console.log(`[VoiceService] Session: ${session.packets.length} packets, ${duration}ms, ${totalBytes} bytes`);
 
+    // Save clip info for debug UI
     runInAction(() => {
+      this.lastClipInfo = {
+        timestamp: session.startTime,
+        duration,
+        packetCount: session.packets.length,
+        totalBytes,
+        sequenceGaps: this.sequenceGaps,
+        sampleRate: 16000,
+      };
       this.currentSession!.ended = true;
       this.state = 'processing';
     });
@@ -229,6 +260,9 @@ class VoiceService {
         combinedPcm.set(buf, offset);
         offset += buf.length;
       }
+
+      // Save for playback
+      this.lastClipPcm = combinedPcm;
 
       console.log(`[VoiceService] Combined PCM: ${totalSamples} samples (${totalSamples / 16000}s)`);
 
@@ -502,7 +536,129 @@ class VoiceService {
       hasSession: this.currentSession !== null,
       packetCount: this.currentSession?.packets.length ?? 0,
       lastResult: this.lastResult,
+      lastClipInfo: this.lastClipInfo,
+      hasClipForPlayback: this.lastClipPcm !== null && this.lastClipPcm.length > 0,
     };
+  }
+
+  /**
+   * Check if we have a clip available for playback
+   */
+  hasClip(): boolean {
+    return this.lastClipPcm !== null && this.lastClipPcm.length > 0;
+  }
+
+  /**
+   * Get the last clip as a WAV data URI for playback
+   */
+  getLastClipAsWavUri(): string | null {
+    if (!this.lastClipPcm || this.lastClipPcm.length === 0) {
+      return null;
+    }
+
+    const wavBlob = this.int16ToWav(this.lastClipPcm);
+    
+    // Convert blob to base64 data URI
+    return new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.readAsDataURL(wavBlob);
+    }) as any; // This is sync for now, see async version below
+  }
+
+  /**
+   * Get last clip as WAV blob for playback with expo-av
+   */
+  async getLastClipAsWavBlob(): Promise<Blob | null> {
+    if (!this.lastClipPcm || this.lastClipPcm.length === 0) {
+      return null;
+    }
+    return this.int16ToWav(this.lastClipPcm);
+  }
+
+  /**
+   * Convert Int16 PCM to WAV Blob
+   */
+  private int16ToWav(pcm: Int16Array): Blob {
+    const sampleRate = 16000;
+    const numChannels = 1;
+    const bytesPerSample = 2;
+    const dataLength = pcm.length * bytesPerSample;
+    
+    const buffer = new ArrayBuffer(44 + dataLength);
+    const view = new DataView(buffer);
+    
+    // WAV header
+    const writeString = (offset: number, str: string) => {
+      for (let i = 0; i < str.length; i++) {
+        view.setUint8(offset + i, str.charCodeAt(i));
+      }
+    };
+    
+    writeString(0, 'RIFF');
+    view.setUint32(4, 36 + dataLength, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true); // Subchunk1Size
+    view.setUint16(20, 1, true);  // AudioFormat (PCM)
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * numChannels * bytesPerSample, true);
+    view.setUint16(32, numChannels * bytesPerSample, true);
+    view.setUint16(34, bytesPerSample * 8, true);
+    writeString(36, 'data');
+    view.setUint32(40, dataLength, true);
+    
+    // Copy PCM data
+    const pcmView = new Int16Array(buffer, 44);
+    pcmView.set(pcm);
+    
+    return new Blob([buffer], { type: 'audio/wav' });
+  }
+
+  /**
+   * Play the last recorded clip using expo-av
+   */
+  async playLastClip(): Promise<void> {
+    if (!this.lastClipPcm || this.lastClipPcm.length === 0) {
+      console.warn('[VoiceService] No clip to play');
+      return;
+    }
+
+    try {
+      const { Audio } = await import('expo-av');
+      
+      // Create WAV blob
+      const wavBlob = this.int16ToWav(this.lastClipPcm);
+      
+      // Convert to base64 data URI
+      const base64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const result = reader.result as string;
+          resolve(result);
+        };
+        reader.readAsDataURL(wavBlob);
+      });
+
+      console.log('[VoiceService] Playing clip, duration:', this.lastClipPcm.length / 16000, 's');
+
+      // Load and play
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: base64 },
+        { shouldPlay: true }
+      );
+
+      // Clean up when done
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (status.isLoaded && status.didJustFinish) {
+          sound.unloadAsync();
+        }
+      });
+    } catch (err) {
+      console.error('[VoiceService] Playback error:', err);
+      throw err;
+    }
   }
 }
 

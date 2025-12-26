@@ -6,6 +6,7 @@ export { LedTestScreen } from './LedTestScreen';
 export { MiniAppScreen } from './MiniAppScreen';
 export { LauncherScreen } from './LauncherScreen';
 export { SimulatorScreen } from './SimulatorScreen';
+export { default as VoiceDebugScreen } from './VoiceDebugScreen';
 
 // Navigation types
 export type RootStackParamList = {
@@ -17,6 +18,7 @@ export type RootStackParamList = {
   MiniApp: undefined;
   Launcher: undefined;
   Simulator: undefined;
+  VoiceDebug: undefined;
   AppConfig: { appIndex: number };
 };
 
