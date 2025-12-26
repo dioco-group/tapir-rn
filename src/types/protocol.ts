@@ -52,6 +52,15 @@ export enum MessageType {
   FULL_SCREEN_ATTRS = 0x42, // Future: with color attributes
   CURSOR_POS = 0x43,        // Future
   PARTIAL_UPDATE = 0x44,    // Future
+
+  // Voice (PTT)
+  VOICE_START = 0x60,       // Device: PTT button pressed
+  VOICE_DATA = 0x61,        // Device: Opus audio frame
+  VOICE_END = 0x62,         // Device: PTT button released
+  
+  // Audio Control
+  AUDIO_HEADPHONES = 0x63,  // Device: Headphone jack state changed
+  HAPTIC = 0x64,            // App → Device: Trigger haptic pattern
 }
 
 // ============================================================================
@@ -61,6 +70,19 @@ export enum MessageType {
 export enum KeyEvent {
   DOWN = 1,
   UP = 2,
+}
+
+// ============================================================================
+// Haptic Patterns
+// ============================================================================
+
+export enum HapticPatternId {
+  TAP = 0x01,
+  DOUBLE = 0x02,
+  BUZZ = 0x03,
+  NOTIFICATION = 0x04,
+  RING = 0x05,
+  ALARM = 0x06,
 }
 
 // ============================================================================
@@ -83,6 +105,10 @@ export interface TerminalScreenPayload {
   cols: number;
   rows: number;
   data: Uint8Array;
+}
+
+export interface HeadphonesPayload {
+  connected: boolean;
 }
 
 export interface ReceivedMessage {

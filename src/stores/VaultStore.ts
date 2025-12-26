@@ -267,7 +267,10 @@ class VaultStore {
     const formData = new FormData();
     
     // Create a Blob from the audio data
-    const blob = new Blob([audioData], { type: `audio/${format}` });
+    // Copy to new ArrayBuffer to avoid SharedArrayBuffer type issues
+    const arrayBuffer = new ArrayBuffer(audioData.byteLength);
+    new Uint8Array(arrayBuffer).set(audioData);
+    const blob = new Blob([arrayBuffer], { type: `audio/${format}` });
     formData.append('file', blob, `audio.${format}`);
     formData.append('model', 'whisper-1');
     

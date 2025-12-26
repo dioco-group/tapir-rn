@@ -24,7 +24,13 @@ export type BridgeMethod =
   | 'launcher.home'
   | 'launcher.back'
   | 'launcher.getApps'
-  | 'launcher.updateApp';
+  | 'launcher.updateApp'
+  // Voice
+  | 'voice.speak'
+  | 'voice.status'
+  // Audio
+  | 'audio.status'
+  | 'audio.alert';
 
 export interface BridgeRequest {
   id: string;

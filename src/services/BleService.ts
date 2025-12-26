@@ -291,6 +291,21 @@ class BleService {
     await this.sendMessage(MessageType.DISCARD, payload);
   }
 
+  /**
+   * Send haptic pattern to device
+   */
+  async sendHaptic(pattern: number): Promise<void> {
+    const payload = new Uint8Array([pattern]);
+    await this.sendMessage(MessageType.HAPTIC, payload);
+  }
+
+  /**
+   * Public API for sending raw messages by type
+   */
+  async send(type: number, payload: Uint8Array = new Uint8Array(0)): Promise<void> {
+    await this.sendMessage(type as MessageType, payload);
+  }
+
   // ==========================================================================
   // Callbacks
   // ==========================================================================
@@ -525,6 +540,16 @@ class BleService {
       case MessageType.VOICE_END:
         console.log('[BLE] Voice end received');
         voiceService.handleVoiceEnd();
+        return true;
+
+      case MessageType.AUDIO_HEADPHONES:
+        // Device reporting headphone jack state
+        const connected = payload[0] === 1;
+        console.log('[BLE] Tapir headphones:', connected ? 'connected' : 'disconnected');
+        // Notify audio routing service
+        import('./AudioRoutingService').then(({ audioRoutingService }) => {
+          audioRoutingService.setTapirHeadphonesConnected(connected);
+        });
         return true;
 
       default:

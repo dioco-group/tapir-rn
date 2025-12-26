@@ -6,7 +6,10 @@
  */
 
 import { Buffer } from 'buffer';
+import * as Haptics from 'expo-haptics';
 import { bleService, storageService } from '../services';
+import { audioRoutingService } from '../services/AudioRoutingService';
+import { voiceService } from '../services/VoiceService';
 import { deviceStore, terminalStore, vaultStore, launcherStore } from '../stores';
 import {
   BridgeRequest,
@@ -21,6 +24,7 @@ import {
   LauncherLaunchParams,
   LauncherUpdateAppParams,
 } from '../types/bridge';
+import { HapticPatternId } from '../types/protocol';
 
 // ============================================================================
 // Bridge Handler
@@ -121,6 +125,22 @@ class BridgeHandler {
         
       case 'launcher.updateApp':
         return this.handleLauncherUpdateApp(params as unknown as LauncherUpdateAppParams);
+      
+      // ==== Voice ====
+      
+      case 'voice.speak':
+        return this.handleVoiceSpeak(params as { text: string; context?: string });
+        
+      case 'voice.status':
+        return this.handleVoiceStatus();
+        
+      // ==== Audio ====
+      
+      case 'audio.status':
+        return this.handleAudioStatus();
+        
+      case 'audio.alert':
+        return this.handleAudioAlert(params as { type?: string });
         
       default:
         throw new Error(`Unknown method: ${method}`);
@@ -202,9 +222,8 @@ class BridgeHandler {
   }
 
   private async handleTtsSpeak(params: TtsSpeakParams): Promise<void> {
-    // TODO: Implement with expo-speech
-    console.log('[Bridge] TTS speak:', params.text);
-    throw new Error('TTS not yet implemented');
+    const { text, context = 'system' } = params as TtsSpeakParams & { context?: string };
+    await audioRoutingService.speak(text, context as 'music' | 'call' | 'notification' | 'ai' | 'system');
   }
 
   private handleDeviceInfo(): Record<string, unknown> {
@@ -221,8 +240,38 @@ class BridgeHandler {
   }
 
   private async handleVibrate(): Promise<void> {
-    // TODO: Implement with expo-haptics
-    console.log('[Bridge] Vibrate');
+    // Trigger haptic on phone
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    
+    // Also trigger on Tapir device if connected
+    if (deviceStore.isConnected) {
+      await bleService.sendHaptic(HapticPatternId.TAP);
+    }
+  }
+
+  // ==========================================================================
+  // Voice Handlers
+  // ==========================================================================
+
+  private async handleVoiceSpeak(params: { text: string; context?: string }): Promise<void> {
+    const { text, context = 'ai' } = params;
+    await audioRoutingService.speak(text, context as 'music' | 'call' | 'notification' | 'ai' | 'system');
+  }
+
+  private handleVoiceStatus(): Record<string, unknown> {
+    return voiceService.getStatus();
+  }
+
+  // ==========================================================================
+  // Audio Handlers
+  // ==========================================================================
+
+  private handleAudioStatus(): Record<string, unknown> {
+    return audioRoutingService.getStatus();
+  }
+
+  private async handleAudioAlert(params: { type?: string }): Promise<{ sound: boolean; haptic: boolean }> {
+    return audioRoutingService.alertNotification();
   }
 
   // ==========================================================================
