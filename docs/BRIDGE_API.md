@@ -1,377 +1,250 @@
 # Tapir Bridge API
 
-All APIs are accessed via the `window.tapir` object in mini-apps.
-
-## API Structure
+Clean, minimal API for mini-apps. All methods return Promises.
 
 ```
 window.tapir
 ├── device          # Tapir hardware
-│   ├── info()
-│   ├── battery()
-│   ├── vibrate()
-│   └── sensors
 ├── display         # Device screen
-│   ├── terminal()
-│   ├── clear()
-│   └── write()
-├── led             # Button LEDs
-│   ├── set()
-│   ├── setAll()
-│   └── off()
+├── led             # Button LEDs  
 ├── phone           # Host phone
-│   ├── battery()
-│   ├── network()
-│   ├── time()
-│   └── vibrate()
+├── location        # GPS
 ├── notifications   # Android notifications
-│   ├── list()
-│   ├── post()
-│   └── on()
-├── location        # GPS (prompt once)
-│   └── current()
-├── media           # Music control
-│   ├── playPause()
-│   ├── next()
-│   ├── previous()
-│   └── nowPlaying()
-├── ai              # AI chat (proxied)
-│   └── chat()
-├── voice           # Push-to-talk
-│   ├── speak()
-│   └── on()
-├── storage         # Per-app sandbox
-│   ├── get()
-│   ├── set()
-│   ├── remove()
-│   └── keys()
-└── launcher        # App navigation
-    ├── home()
-    ├── back()
-    └── getApps()
+├── ai              # AI chat
+├── voice           # TTS + STT
+├── storage         # Per-app data
+└── launcher        # Navigation
 ```
 
 ---
 
 ## Core
 
-### `tapir.isConnected()`
-Check if Tapir device is connected via BLE.
-
 ```js
-if (tapir.isConnected()) {
-  // Device is connected
-}
+tapir.isConnected()              // Is device connected?
+tapir.on(event, callback)        // Subscribe to events
+tapir.off(event, callback)       // Unsubscribe
 ```
-
-### `tapir.on(event, callback)`
-Subscribe to events from native layer.
-
-```js
-tapir.on('button', ({ id, event }) => {
-  console.log(`Button ${id} ${event}`); // "Button 0 down"
-});
-```
-
-### `tapir.off(event, callback)`
-Unsubscribe from events.
 
 ---
 
 ## Device (Tapir Hardware)
 
-### `tapir.device.info()` → `Promise<DeviceInfo>`
-Get device information.
-
 ```js
-const info = await tapir.device.info();
-// { connected: true, mtu: 247, name: "TAPIR-1234" }
-```
+// Info
+await tapir.device.info()
+// → { name: "TAPIR-1234", connected: true, mtu: 247 }
 
-### `tapir.device.battery()` → `Promise<BatteryInfo>` 🔜
-Get device battery status.
+// Battery
+await tapir.device.battery()
+// → { level: 0.85, charging: false }
 
-```js
-const battery = await tapir.device.battery();
-// { level: 0.85, charging: false }
-```
+// Vibrate
+await tapir.device.vibrate()
 
-### `tapir.device.vibrate(pattern?)` → `Promise<void>`
-Trigger device haptic feedback.
-
-```js
-await tapir.device.vibrate();        // Single pulse
-await tapir.device.vibrate([100, 50, 100]); // Pattern
-```
-
-### `tapir.device.sensors` 🔜
-Device sensor access (accelerometer, gyroscope, compass).
-
-```js
-// One-time read
-const acc = await tapir.device.sensors.accelerometer();
-// { x: 0.1, y: -0.2, z: 9.8 }
-
-// Subscribe to updates
-tapir.device.sensors.subscribe('accelerometer', (data) => {
-  console.log(data.x, data.y, data.z);
-});
+// Sensors (subscribe to updates)
+tapir.device.sensors.on('accelerometer', ({ x, y, z }) => { })
+tapir.device.sensors.on('gyroscope', ({ x, y, z }) => { })
+tapir.device.sensors.on('compass', ({ heading }) => { })
+tapir.device.sensors.off('accelerometer')
 ```
 
 ---
 
 ## Display
 
-### `tapir.display.terminal(buffer)` → `Promise<void>`
-Write full screen buffer (base64 encoded, 32×18 = 576 chars).
-
 ```js
-const buffer = "Hello World!".padEnd(576, ' ');
-await tapir.display.terminal(btoa(buffer));
-```
+// Full screen (base64, 32×18 = 576 ASCII chars)
+await tapir.display.write(btoa(buffer))
 
-### `tapir.display.clear()` → `Promise<void>`
-Clear the display.
-
-```js
-await tapir.display.clear();
-```
-
-### `tapir.display.write(x, y, text)` → `Promise<void>` 🔜
-Write text at position.
-
-```js
-await tapir.display.write(0, 0, "Line 1");
-await tapir.display.write(0, 1, "Line 2");
+// Clear
+await tapir.display.clear()
 ```
 
 ---
 
 ## LED
 
-### `tapir.led.set(index, r, g, b)` → `Promise<void>`
-Set a single button LED color.
-
 ```js
-await tapir.led.set(0, 255, 0, 0);  // Button 0 = red
-```
+// Set single LED
+await tapir.led.set(0, { r: 255, g: 0, b: 0 })
 
-### `tapir.led.setAll(colors)` → `Promise<void>` 🔜
-Set all LEDs at once.
-
-```js
+// Set all LEDs
 await tapir.led.setAll([
-  { r: 255, g: 0, b: 0 },   // Button 0
-  { r: 0, g: 255, b: 0 },   // Button 1
-  // ...
-]);
-```
+  { r: 255, g: 0, b: 0 },  // Button 0
+  { r: 0, g: 255, b: 0 },  // Button 1
+  // ... 12 total
+])
 
-### `tapir.led.off(index?)` → `Promise<void>` 🔜
-Turn off LED(s).
-
-```js
-await tapir.led.off(0);    // Turn off button 0
-await tapir.led.off();     // Turn off all
+// Turn off
+await tapir.led.off(0)     // Single
+await tapir.led.off()      // All
 ```
 
 ---
 
-## Phone (Host Device)
-
-### `tapir.phone.battery()` → `Promise<BatteryInfo>` 🔜
-Get phone battery status.
+## Phone
 
 ```js
-const battery = await tapir.phone.battery();
-// { level: 0.72, charging: true }
-```
+// Battery
+await tapir.phone.battery()
+// → { level: 0.72, charging: true, lowPower: false }
 
-### `tapir.phone.network()` → `Promise<NetworkInfo>` 🔜
-Get network status.
-
-```js
-const net = await tapir.phone.network();
-// { type: "wifi", connected: true }
+// Network
+await tapir.phone.network()
+// → { type: "wifi", connected: true }
 // type: "wifi" | "cellular" | "none"
-```
 
-### `tapir.phone.time()` → `Promise<TimeInfo>` 🔜
-Get current time and timezone.
+// Vibrate
+await tapir.phone.vibrate()
+await tapir.phone.vibrate('success')  // success | warning | error
 
-```js
-const time = await tapir.phone.time();
-// { now: 1703612400000, timezone: "America/New_York", offset: -300 }
-```
+// Keep screen on
+await tapir.phone.keepAwake(true)
+await tapir.phone.keepAwake(false)
 
-### `tapir.phone.vibrate(pattern?)` → `Promise<void>`
-Vibrate the phone.
+// Steps (pedometer)
+await tapir.phone.steps()             // Today's count
+await tapir.phone.steps(startDate, endDate)
 
-```js
-await tapir.phone.vibrate();
-```
+// Biometric auth
+const { success } = await tapir.phone.authenticate("Confirm action")
 
----
+// Open URLs
+await tapir.phone.open("https://example.com")
+await tapir.phone.open("tel:+1234567890")
+await tapir.phone.open("geo:37.7749,-122.4194")
 
-## Notifications
+// Compose (opens app, user sends)
+await tapir.phone.email({ to: "a@b.com", subject: "Hi", body: "..." })
+await tapir.phone.sms({ to: "+1234567890", body: "Hello" })
 
-### `tapir.notifications.list()` → `Promise<Notification[]>` 🔜
-Get recent notifications.
+// Share
+await tapir.phone.share({ text: "Check this out!", url: "..." })
 
-```js
-const notifications = await tapir.notifications.list();
-// [{ app: "Messages", title: "John", text: "Hey!", timestamp: 1703612400000 }]
-```
-
-### `tapir.notifications.post(title, body, options?)` → `Promise<void>` 🔜
-Post a notification. **Requires permission.**
-
-```js
-await tapir.notifications.post("Timer", "Your timer is done!");
-```
-
-### `tapir.notifications.on(callback)`
-Subscribe to new notifications.
-
-```js
-tapir.on('notification', (n) => {
-  console.log(`${n.app}: ${n.title}`);
-});
+// Settings
+await tapir.phone.settings("wifi")      // wifi | bluetooth | location | notifications
 ```
 
 ---
 
 ## Location
 
-### `tapir.location.current()` → `Promise<Location>` 🔜
-Get current GPS location. **Requires permission (prompt once).**
-
 ```js
-const loc = await tapir.location.current();
-// { latitude: 35.6762, longitude: 139.6503, accuracy: 10 }
+// Request permission (call once)
+await tapir.location.requestPermission()
+
+// Get current position
+await tapir.location.get()
+// → { lat: 35.6762, lon: 139.6503, accuracy: 10, timestamp: 1703612400000 }
+
+// Watch position
+tapir.location.watch(({ lat, lon }) => { })
+tapir.location.stopWatch()
 ```
 
 ---
 
-## Media
-
-### `tapir.media.playPause()` → `Promise<void>` 🔜
-Toggle music playback.
-
-### `tapir.media.next()` → `Promise<void>` 🔜
-Skip to next track.
-
-### `tapir.media.previous()` → `Promise<void>` 🔜
-Go to previous track.
-
-### `tapir.media.nowPlaying()` → `Promise<NowPlaying>` 🔜
-Get currently playing track info.
+## Notifications
 
 ```js
-const track = await tapir.media.nowPlaying();
-// { title: "Song Name", artist: "Artist", album: "Album", playing: true }
+// Listen to incoming (already granted via system settings)
+tapir.on('notification', ({ app, title, text, time }) => { })
+
+// Get recent
+await tapir.notifications.list()
+// → [{ app, title, text, time }, ...]
+
+// Post new (requires permission)
+await tapir.notifications.post({ title: "Timer", body: "Done!" })
 ```
 
 ---
 
 ## AI
 
-### `tapir.ai.chat(prompt, options?)` → `Promise<{ text: string }>`
-Send a chat message to AI. Uses API keys stored in the native app (never exposed to mini-apps).
-
 ```js
-const response = await tapir.ai.chat("What's the weather like?");
-console.log(response.text);
+// Chat (uses keys stored in native app - never exposed)
+const { text } = await tapir.ai.chat("What's the weather?")
+const { text } = await tapir.ai.chat("Summarize this", { 
+  model: "gpt-4o",
+  maxTokens: 500 
+})
 ```
-
-Options:
-- `model`: Model name (default: gpt-4o-mini)
-- `maxTokens`: Max response tokens
 
 ---
 
 ## Voice
 
-### `tapir.voice.speak(text, options?)` → `Promise<void>`
-Text-to-speech.
-
 ```js
-await tapir.voice.speak("Hello, world!");
-```
+// Text to speech
+await tapir.voice.speak("Hello world")
+await tapir.voice.speak("Bonjour", { lang: "fr" })
 
-Options:
-- `language`: Language code (e.g., "en-US")
-- `pitch`: 0.5 - 2.0
-- `rate`: 0.5 - 2.0
-
-### `tapir.voice.on('result', callback)` 🔜
-Receive speech recognition results (triggered by device PTT button).
-
-```js
+// Speech recognition (triggered by device PTT button)
 tapir.on('voice', ({ text, final }) => {
-  if (final) {
-    console.log("You said:", text);
-  }
-});
+  if (final) console.log("You said:", text)
+})
 ```
 
 ---
 
 ## Storage
 
-Per-app sandboxed storage. Each mini-app has its own namespace.
+Per-app sandboxed storage. Each mini-app has isolated data.
 
-### `tapir.storage.get(key)` → `Promise<any>`
 ```js
-const value = await tapir.storage.get('highscore');
-```
-
-### `tapir.storage.set(key, value)` → `Promise<void>`
-```js
-await tapir.storage.set('highscore', 1000);
-```
-
-### `tapir.storage.remove(key)` → `Promise<void>` 🔜
-```js
-await tapir.storage.remove('highscore');
-```
-
-### `tapir.storage.keys()` → `Promise<string[]>` 🔜
-```js
-const keys = await tapir.storage.keys();
+await tapir.storage.set("key", { any: "value" })
+const value = await tapir.storage.get("key")
+await tapir.storage.remove("key")
+const keys = await tapir.storage.keys()
+await tapir.storage.clear()
 ```
 
 ---
 
 ## Launcher
 
-### `tapir.launcher.home()` → `Promise<void>`
-Go back to launcher.
-
-### `tapir.launcher.back()` → `Promise<void>`
-Go back (same as home currently).
-
-### `tapir.launcher.getApps()` → `Promise<{ apps: App[] }>`
-Get configured apps.
-
 ```js
-const { apps } = await tapir.launcher.getApps();
-// [{ id: "pager", name: "Pager", icon: "📟", url: "..." }]
+tapir.launcher.home()        // Go to launcher
+tapir.launcher.back()        // Go back
+await tapir.launcher.apps()  // Get app list
+// → [{ id, name, icon, url }, ...]
 ```
 
 ---
 
 ## Events
 
-Events are emitted by the native layer and can be subscribed to with `tapir.on()`.
+```js
+tapir.on('button', ({ id, state }) => { })
+// state: "down" | "up"
+// id: 0-11 (grid), 12-13 (triggers)
 
-| Event | Data | Description |
-|-------|------|-------------|
-| `button` | `{ id, event }` | Button press/release. `event`: "down" \| "up" |
-| `notification` | `{ app, title, text, timestamp }` | New notification received |
-| `connection` | `{ connected, deviceId }` | Device connection changed |
-| `sensor` | `{ type, x, y, z }` | Sensor data from device 🔜 |
-| `voice` | `{ text, final }` | Speech recognition result 🔜 |
+tapir.on('notification', ({ app, title, text, time }) => { })
+
+tapir.on('connection', ({ connected }) => { })
+
+tapir.on('voice', ({ text, final }) => { })
+```
+
+---
+
+## Permissions
+
+| API | Permission |
+|-----|------------|
+| device, display, led, storage, launcher | Always allowed |
+| phone (battery, network, vibrate, keepAwake) | Always allowed |
+| phone (open, email, sms, share) | Always allowed (opens native app) |
+| phone.steps | Always allowed |
+| phone.authenticate | Biometric prompt |
+| notifications.list | Granted at install |
+| notifications.post | Prompt once |
+| location | Prompt once |
+| voice (PTT) | Hardware triggered |
+| contacts, calendar | Prompt once |
+| sms.send (auto) | High risk - maybe never |
 
 ---
 
@@ -379,45 +252,31 @@ Events are emitted by the native layer and can be subscribed to with `tapir.on()
 
 | API | Status |
 |-----|--------|
-| `device.info` | ✅ Implemented |
-| `device.vibrate` | ✅ Implemented |
-| `device.battery` | 🔜 Planned |
-| `device.sensors` | 🔜 Planned (needs firmware) |
-| `display.terminal` | ✅ Implemented |
-| `display.clear` | ✅ Implemented |
-| `display.write` | 🔜 Planned |
-| `led.set` | ✅ Implemented |
-| `led.setAll` | 🔜 Planned |
-| `led.off` | 🔜 Planned |
-| `phone.battery` | 🔜 Planned |
-| `phone.network` | 🔜 Planned |
-| `phone.time` | 🔜 Planned |
-| `phone.vibrate` | ✅ Implemented |
-| `notifications.on` | ✅ Implemented |
-| `notifications.list` | 🔜 Planned |
-| `notifications.post` | 🔜 Planned |
-| `location.current` | 🔜 Planned |
-| `media.*` | 🔜 Planned |
-| `ai.chat` | ✅ Implemented |
-| `voice.speak` | ✅ Implemented |
-| `voice.on` | 🔜 Planned |
-| `storage.get/set` | ✅ Implemented |
-| `storage.remove/keys` | 🔜 Planned |
-| `launcher.*` | ✅ Implemented |
-
----
-
-## Permissions
-
-| Category | Permission Model |
-|----------|-----------------|
-| Device, Display, LED, Storage, Launcher | Always allowed |
-| Phone (battery, network, time) | Always allowed |
-| Media controls | Always allowed |
-| Notifications (read) | Granted at app install |
-| Notifications (post) | Prompt once |
-| Location | Prompt once |
-| Voice (PTT) | Hardware-triggered, no prompt |
-| Contacts, Calendar | Prompt once |
-| SMS | High risk, prompt each time |
-
+| device.info | ✅ |
+| device.vibrate | ✅ |
+| device.battery | 🔜 firmware |
+| device.sensors | 🔜 firmware |
+| display.write | ✅ |
+| display.clear | ✅ |
+| led.set | ✅ |
+| led.setAll | 🔜 |
+| led.off | 🔜 |
+| phone.battery | 🔜 |
+| phone.network | 🔜 |
+| phone.vibrate | ✅ |
+| phone.keepAwake | 🔜 |
+| phone.steps | 🔜 |
+| phone.authenticate | 🔜 |
+| phone.open | 🔜 |
+| phone.email | 🔜 |
+| phone.sms | 🔜 |
+| phone.share | 🔜 |
+| phone.settings | 🔜 |
+| location.* | 🔜 |
+| notifications.list | 🔜 |
+| notifications.post | 🔜 |
+| ai.chat | ✅ |
+| voice.speak | ✅ |
+| voice (PTT) | 🔜 |
+| storage.* | ✅ |
+| launcher.* | ✅ |
