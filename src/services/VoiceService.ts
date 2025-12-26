@@ -346,12 +346,19 @@ class VoiceService {
     }
 
     try {
-      // Convert PCM to WAV blob
-      const wavBlob = this.pcmToWav(pcm);
+      // Convert PCM to WAV as base64
+      const wavBase64 = this.pcmToWavBase64(pcm);
       
-      // Send to Whisper API
+      // In React Native, we need to use a file URI approach for FormData
+      // Create a data URI and use it as a file
       const formData = new FormData();
-      formData.append('file', wavBlob as any, 'audio.wav');
+      
+      // React Native FormData accepts objects with uri, type, name
+      formData.append('file', {
+        uri: `data:audio/wav;base64,${wavBase64}`,
+        type: 'audio/wav',
+        name: 'audio.wav',
+      } as any);
       formData.append('model', 'whisper-1');
       formData.append('language', 'en');
 
@@ -377,9 +384,10 @@ class VoiceService {
   }
 
   /**
-   * Convert Int16 PCM samples to WAV blob
+   * Convert Int16 PCM samples to WAV as base64 string
+   * (React Native compatible - avoids Blob issues)
    */
-  private pcmToWav(pcm: Int16Array): Blob {
+  private pcmToWavBase64(pcm: Int16Array): string {
     const sampleRate = 16000;
     const numChannels = 1;
     const bytesPerSample = 2;
@@ -413,7 +421,13 @@ class VoiceService {
     const pcmView = new Int16Array(buffer, 44);
     pcmView.set(pcm);
     
-    return new Blob([buffer], { type: 'audio/wav' });
+    // Convert to base64
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
   }
 
   /**
