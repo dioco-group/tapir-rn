@@ -103,9 +103,6 @@ await tapir.phone.vibrate('success')  // success | warning | error
 await tapir.phone.steps()             // Today's count
 await tapir.phone.steps(startDate, endDate)
 
-// Biometric auth
-const { success } = await tapir.phone.authenticate("Confirm action")
-
 // Open URLs
 await tapir.phone.open("https://example.com")
 await tapir.phone.open("tel:+1234567890")
@@ -234,7 +231,6 @@ tapir.on('voice', ({ text, final }) => { })
 | phone (battery, network, vibrate) | Always allowed |
 | phone (open, email, sms, share) | Always allowed (opens native app) |
 | phone.steps | Always allowed |
-| phone.authenticate | Biometric prompt |
 | notifications.list | Granted at install |
 | notifications.post | Prompt once |
 | location | Prompt once |
@@ -261,7 +257,6 @@ tapir.on('voice', ({ text, final }) => { })
 | phone.network | 🔜 |
 | phone.vibrate | ✅ |
 | phone.steps | 🔜 |
-| phone.authenticate | 🔜 |
 | phone.open | 🔜 |
 | phone.email | 🔜 |
 | phone.sms | 🔜 |
@@ -275,3 +270,17 @@ tapir.on('voice', ({ text, final }) => { })
 | voice (PTT) | 🔜 |
 | storage.* | ✅ |
 | launcher.* | ✅ |
+
+---
+
+## Future Considerations
+
+APIs that may be added later based on need:
+
+| API | Description |
+|-----|-------------|
+| `phone.authenticate(prompt)` | Biometric auth (fingerprint/face) - for confirming sensitive actions like payments |
+| `phone.contacts` | Read contacts for display on device |
+| `phone.calendar` | Read calendar events |
+| `phone.camera` | Take photos |
+| `files.*` | Access to downloads/documents (needs sandboxing discussion) |
