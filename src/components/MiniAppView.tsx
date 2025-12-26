@@ -18,6 +18,19 @@ import { notificationStore, deviceStore } from '../stores';
 import { voiceService } from '../services/VoiceService';
 
 // ============================================================================
+// Helpers
+// ============================================================================
+
+/** Convert Uint8Array to base64 string for passing to WebView */
+function uint8ArrayToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+// ============================================================================
 // Types
 // ============================================================================
 
@@ -91,22 +104,36 @@ export const MiniAppView = forwardRef<MiniAppViewRef, MiniAppViewProps>(
       return () => disposer();
     }, []);
 
-    // Forward voice events to WebView
+    // Forward voice events to WebView (including audio data)
     useEffect(() => {
-      voiceService.onVoiceStateChange((state) => {
-        if (state === 'listening') {
+      // Subscribe to all voice events
+      const unsubscribe = voiceService.onEvent((event) => {
+        if (event.type === 'start') {
           webViewRef.current?.injectJavaScript(`
-            window.tapir.emit('voice.start', {});
+            window.tapir.emit('voice', { type: 'start' });
             true;
           `);
-        } else if (state === 'idle') {
+        } else if (event.type === 'data' && event.audio) {
+          // Convert Uint8Array to base64 for transmission to WebView
+          const base64 = uint8ArrayToBase64(event.audio);
           webViewRef.current?.injectJavaScript(`
-            window.tapir.emit('voice.end', { state: 'idle' });
+            window.tapir.emit('voice', { type: 'data', audio: '${base64}', sequence: ${event.sequence ?? 0} });
+            true;
+          `);
+        } else if (event.type === 'end') {
+          webViewRef.current?.injectJavaScript(`
+            window.tapir.emit('voice', { type: 'end' });
+            true;
+          `);
+        } else if (event.type === 'result' && event.text) {
+          webViewRef.current?.injectJavaScript(`
+            window.tapir.emit('voice', { type: 'result', text: ${JSON.stringify(event.text)} });
             true;
           `);
         }
       });
 
+      // Also forward legacy callbacks for compatibility
       voiceService.onTranscriptReceived((transcript) => {
         webViewRef.current?.injectJavaScript(`
           window.tapir.emit('voice.result', { transcript: ${JSON.stringify(transcript)}, response: '' });
@@ -121,7 +148,7 @@ export const MiniAppView = forwardRef<MiniAppViewRef, MiniAppViewProps>(
         `);
       });
 
-      // No cleanup needed - voiceService is a singleton
+      return () => unsubscribe();
     }, []);
 
     // Emit initial connection state when WebView loads

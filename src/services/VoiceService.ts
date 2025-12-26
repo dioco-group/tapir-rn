@@ -179,15 +179,20 @@ class VoiceService {
       return;
     }
 
-    // Parse packet: [seq_hi, seq_lo, timestamp_4bytes, opus_data...]
+    // Parse packet: [seq_hi, seq_lo, opus_data...] (firmware format)
     if (payload.length < 6) {
       console.warn('[VoiceService] Invalid voice data packet (too short)');
       return;
     }
 
+    // Firmware payload format: 2 bytes sequence (BE) + Opus data
     const sequence = (payload[0] << 8) | payload[1];
-    const timestamp = (payload[2] | (payload[3] << 8) | (payload[4] << 16) | (payload[5] << 24));
-    const opusData = payload.slice(6);
+    const opusData = payload.slice(2);
+    
+    // Log first frame details for debugging
+    if (sequence === 0 || this.currentSession?.packets.length === 0) {
+      console.log(`[VoiceService] First frame: ${opusData.length} bytes, TOC: 0x${opusData[0]?.toString(16)}`);
+    }
 
     // Check for sequence gaps
     if (sequence !== this.expectedSequence) {
@@ -200,7 +205,8 @@ class VoiceService {
     }
     this.expectedSequence = (sequence + 1) & 0xFFFF;
 
-    // Store packet
+    // Store packet (calculate timestamp from sequence - each frame is 20ms)
+    const timestamp = sequence * 20; // ms since start
     const packet: VoiceDataPacket = { 
       sequence, 
       timestamp,
