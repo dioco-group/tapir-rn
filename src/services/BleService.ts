@@ -21,6 +21,7 @@ import {
   ReceivedMessage,
   ScannedDevice,
 } from '../types/protocol';
+import { voiceService } from './VoiceService';
 
 // ============================================================================
 // Constants
@@ -485,6 +486,11 @@ class BleService {
       const msgType = payload[0] as MessageType;
       const msgPayload = payload.subarray(1);
 
+      // Handle voice messages directly (high priority, low latency)
+      if (this.handleVoiceMessage(msgType, msgPayload)) {
+        return;
+      }
+
       const message: ReceivedMessage = {
         type: msgType,
         payload: new Uint8Array(msgPayload),
@@ -493,6 +499,36 @@ class BleService {
       console.log(`[BLE] Received: type=0x${msgType.toString(16)}, len=${msgPayload.length}`);
       
       this.onMessageCallback?.(message);
+    }
+  }
+
+  // ==========================================================================
+  // Private: Voice Message Handling
+  // ==========================================================================
+
+  /**
+   * Handle voice messages from device (PTT)
+   * Returns true if message was handled
+   */
+  private handleVoiceMessage(msgType: MessageType, payload: Uint8Array): boolean {
+    switch (msgType) {
+      case MessageType.VOICE_START:
+        console.log('[BLE] Voice start received');
+        voiceService.handleVoiceStart();
+        return true;
+
+      case MessageType.VOICE_DATA:
+        // Forward raw payload to voice service
+        voiceService.handleVoiceData(new Uint8Array(payload));
+        return true;
+
+      case MessageType.VOICE_END:
+        console.log('[BLE] Voice end received');
+        voiceService.handleVoiceEnd();
+        return true;
+
+      default:
+        return false;
     }
   }
 

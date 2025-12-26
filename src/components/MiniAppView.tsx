@@ -15,6 +15,7 @@ import { reaction } from 'mobx';
 import { bridgeHandler, BRIDGE_INJECT_JS } from '../bridge';
 import { BridgeRequest, BridgeEvent } from '../types/bridge';
 import { notificationStore, deviceStore } from '../stores';
+import { voiceService } from '../services/VoiceService';
 
 // ============================================================================
 // Types
@@ -88,6 +89,39 @@ export const MiniAppView = forwardRef<MiniAppViewRef, MiniAppViewProps>(
       );
       
       return () => disposer();
+    }, []);
+
+    // Forward voice events to WebView
+    useEffect(() => {
+      voiceService.onVoiceStateChange((state) => {
+        if (state === 'listening') {
+          webViewRef.current?.injectJavaScript(`
+            window.tapir.emit('voice.start', {});
+            true;
+          `);
+        } else if (state === 'idle') {
+          webViewRef.current?.injectJavaScript(`
+            window.tapir.emit('voice.end', { state: 'idle' });
+            true;
+          `);
+        }
+      });
+
+      voiceService.onTranscriptReceived((transcript) => {
+        webViewRef.current?.injectJavaScript(`
+          window.tapir.emit('voice.result', { transcript: ${JSON.stringify(transcript)}, response: '' });
+          true;
+        `);
+      });
+
+      voiceService.onResponseReceived((response) => {
+        webViewRef.current?.injectJavaScript(`
+          window.tapir.emit('voice.result', { transcript: '', response: ${JSON.stringify(response)} });
+          true;
+        `);
+      });
+
+      // No cleanup needed - voiceService is a singleton
     }, []);
 
     // Emit initial connection state when WebView loads

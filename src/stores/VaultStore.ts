@@ -238,6 +238,59 @@ class VaultStore {
     const data = await response.json();
     return data.content[0]?.text ?? '';
   }
+
+  // ==========================================================================
+  // Audio Transcription (Whisper)
+  // ==========================================================================
+
+  /**
+   * Transcribe audio using OpenAI Whisper API
+   * 
+   * @param audioData - Opus-encoded audio data
+   * @param format - Audio format (default: 'opus')
+   */
+  async transcribeAudio(
+    audioData: Uint8Array,
+    options: {
+      format?: string;
+      language?: string;
+    } = {}
+  ): Promise<string> {
+    const apiKey = storageService.getOpenAiKey();
+    if (!apiKey) {
+      throw new Error('OpenAI API key not configured');
+    }
+
+    const { format = 'opus', language } = options;
+
+    // Create form data with audio file
+    const formData = new FormData();
+    
+    // Create a Blob from the audio data
+    const blob = new Blob([audioData], { type: `audio/${format}` });
+    formData.append('file', blob, `audio.${format}`);
+    formData.append('model', 'whisper-1');
+    
+    if (language) {
+      formData.append('language', language);
+    }
+
+    const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Whisper API error: ${response.status} ${error}`);
+    }
+
+    const data = await response.json();
+    return data.text ?? '';
+  }
 }
 
 // Export singleton

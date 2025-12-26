@@ -4,6 +4,113 @@ How Tapir integrates with the Android audio ecosystem.
 
 ---
 
+## Android Audio Concepts
+
+### Audio Streams
+
+Android categorizes audio into streams with different behaviors:
+
+| Stream | Constant | Purpose | Default Behavior |
+|--------|----------|---------|------------------|
+| **Music** | `STREAM_MUSIC` | Media playback | Routes to BT A2DP when connected |
+| **Voice Call** | `STREAM_VOICE_CALL` | Active phone call | Routes to earpiece/BT HFP |
+| **Ring** | `STREAM_RING` | Incoming call ringtone | Plays on speaker, respects ringer mode |
+| **Notification** | `STREAM_NOTIFICATION` | App notifications | Short sounds, respects DND |
+| **Alarm** | `STREAM_ALARM` | Alarms, timers | Always plays, even in silent mode |
+| **System** | `STREAM_SYSTEM` | UI feedback sounds | Follows system volume |
+| **DTMF** | `STREAM_DTMF` | Dial pad tones | During calls |
+
+### Audio Focus
+
+Apps must request "focus" to play audio. Determines who gets to play:
+
+| Focus Type | Behavior |
+|------------|----------|
+| `AUDIOFOCUS_GAIN` | Long playback (music) - others should stop |
+| `AUDIOFOCUS_GAIN_TRANSIENT` | Short playback (notification) - others pause |
+| `AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK` | Mix with others (navigation) - others lower volume |
+
+```kotlin
+// Request focus before playing
+audioManager.requestAudioFocus(focusRequest)
+
+// Release when done
+audioManager.abandonAudioFocusRequest(focusRequest)
+```
+
+### Audio Attributes
+
+Modern way to describe audio (replaces streams):
+
+```kotlin
+val attributes = AudioAttributes.Builder()
+    .setUsage(AudioAttributes.USAGE_MEDIA)           // Why playing
+    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)  // What playing
+    .build()
+```
+
+| Usage | Content Type | Example |
+|-------|--------------|---------|
+| `USAGE_MEDIA` | `CONTENT_TYPE_MUSIC` | Music playback |
+| `USAGE_VOICE_COMMUNICATION` | `CONTENT_TYPE_SPEECH` | Phone call |
+| `USAGE_NOTIFICATION_RINGTONE` | `CONTENT_TYPE_SONIFICATION` | Incoming call |
+| `USAGE_NOTIFICATION` | `CONTENT_TYPE_SONIFICATION` | App notification |
+| `USAGE_ALARM` | `CONTENT_TYPE_SONIFICATION` | Alarm clock |
+| `USAGE_ASSISTANT` | `CONTENT_TYPE_SPEECH` | Voice assistant TTS |
+
+### Bluetooth Profiles
+
+| Profile | Class | Purpose |
+|---------|-------|---------|
+| **A2DP** | `BluetoothA2dp` | High-quality audio streaming (music) |
+| **HFP** | `BluetoothHeadset` | Hands-free calls (bidirectional) |
+| **AVRCP** | `BluetoothAvrcpController` | Media controls (play/pause/skip) |
+
+```kotlin
+// Check if Tapir is connected as A2DP sink
+val a2dp = bluetoothAdapter.getProfileProxy(context, listener, BluetoothProfile.A2DP)
+val connectedDevices = a2dp.connectedDevices
+```
+
+### MediaSession
+
+For handling media button events (play/pause on headphones, car stereo, etc.):
+
+```kotlin
+mediaSession = MediaSessionCompat(context, "TapirAudio")
+mediaSession.setCallback(object : MediaSessionCompat.Callback() {
+    override fun onPlay() { /* resume */ }
+    override fun onPause() { /* pause */ }
+    override fun onSkipToNext() { /* next track */ }
+})
+```
+
+### TelecomManager
+
+For handling phone calls:
+
+```kotlin
+telecomManager.addNewIncomingCall(phoneAccountHandle, extras)
+telecomManager.placeCall(uri, extras)
+```
+
+---
+
+## React Native / Expo Equivalents
+
+| Android Concept | RN/Expo Library | Notes |
+|-----------------|-----------------|-------|
+| Audio playback | `expo-av` | Play audio files/streams |
+| TTS | `expo-speech` | Text-to-speech |
+| STT | `@react-native-voice/voice` | Speech recognition |
+| Media controls | `react-native-track-player` | Background playback, lock screen controls |
+| BT Classic | `react-native-bluetooth-classic` | Serial profile |
+| BT A2DP | Native module needed | Not directly exposed |
+| Audio focus | Handled by `expo-av` | Automatic for most cases |
+| Phone calls | `react-native-callkeep` | VoIP-style call handling |
+
+---
+
 ## Device Capabilities
 
 | Component | Function |

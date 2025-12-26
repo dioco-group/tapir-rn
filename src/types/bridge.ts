@@ -112,7 +112,10 @@ export type BridgeEventType =
   | 'button'
   | 'notification'
   | 'connection'
-  | 'sensor';
+  | 'sensor'
+  | 'voice.start'
+  | 'voice.result'
+  | 'voice.end';
 
 export interface BridgeEvent {
   type: BridgeEventType;
@@ -159,5 +162,29 @@ export interface LauncherUpdateAppParams {
   icon?: string;
   url?: string;
   enabled?: boolean;
+}
+
+// ============================================================================
+// Voice (PTT) Events
+// ============================================================================
+
+export interface VoiceStartEvent {
+  type: 'voice.start';
+  data: Record<string, never>;
+}
+
+export interface VoiceResultEvent {
+  type: 'voice.result';
+  data: {
+    transcript: string;
+    response: string;
+  };
+}
+
+export interface VoiceEndEvent {
+  type: 'voice.end';
+  data: {
+    state: 'idle' | 'processing' | 'speaking';
+  };
 }
 
