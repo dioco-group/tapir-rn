@@ -99,10 +99,6 @@ await tapir.phone.network()
 await tapir.phone.vibrate()
 await tapir.phone.vibrate('success')  // success | warning | error
 
-// Keep screen on
-await tapir.phone.keepAwake(true)
-await tapir.phone.keepAwake(false)
-
 // Steps (pedometer)
 await tapir.phone.steps()             // Today's count
 await tapir.phone.steps(startDate, endDate)
@@ -235,7 +231,7 @@ tapir.on('voice', ({ text, final }) => { })
 | API | Permission |
 |-----|------------|
 | device, display, led, storage, launcher | Always allowed |
-| phone (battery, network, vibrate, keepAwake) | Always allowed |
+| phone (battery, network, vibrate) | Always allowed |
 | phone (open, email, sms, share) | Always allowed (opens native app) |
 | phone.steps | Always allowed |
 | phone.authenticate | Biometric prompt |
@@ -264,7 +260,6 @@ tapir.on('voice', ({ text, final }) => { })
 | phone.battery | 🔜 |
 | phone.network | 🔜 |
 | phone.vibrate | ✅ |
-| phone.keepAwake | 🔜 |
 | phone.steps | 🔜 |
 | phone.authenticate | 🔜 |
 | phone.open | 🔜 |
