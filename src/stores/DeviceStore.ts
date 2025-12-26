@@ -9,6 +9,7 @@
  */
 
 import { makeAutoObservable, runInAction } from 'mobx';
+import { Platform, PermissionsAndroid } from 'react-native';
 import { bleService, storageService } from '../services';
 import {
   ConnectionState,
@@ -86,10 +87,66 @@ class DeviceStore {
   // ==========================================================================
 
   /**
+   * Request Bluetooth permissions (Android 12+)
+   */
+  private async requestBluetoothPermissions(): Promise<boolean> {
+    if (Platform.OS !== 'android') {
+      return true;
+    }
+
+    try {
+      // Android 12+ requires BLUETOOTH_SCAN and BLUETOOTH_CONNECT
+      if (Platform.Version >= 31) {
+        const granted = await PermissionsAndroid.requestMultiple([
+          PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+          PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        ]);
+
+        const allGranted = 
+          granted[PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN] === PermissionsAndroid.RESULTS.GRANTED &&
+          granted[PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT] === PermissionsAndroid.RESULTS.GRANTED &&
+          granted[PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION] === PermissionsAndroid.RESULTS.GRANTED;
+
+        if (!allGranted) {
+          console.warn('[DeviceStore] Bluetooth permissions not granted:', granted);
+        }
+        
+        return allGranted;
+      } else {
+        // Android < 12 only needs location for BLE scanning
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          {
+            title: 'Location Permission',
+            message: 'Tapir needs location permission for Bluetooth scanning',
+            buttonNeutral: 'Ask Me Later',
+            buttonNegative: 'Cancel',
+            buttonPositive: 'OK',
+          }
+        );
+        return granted === PermissionsAndroid.RESULTS.GRANTED;
+      }
+    } catch (error) {
+      console.error('[DeviceStore] Permission request error:', error);
+      return false;
+    }
+  }
+
+  /**
    * Start scanning for devices
    */
   async startScan(): Promise<void> {
     if (this.connectionState !== ConnectionState.DISCONNECTED) {
+      return;
+    }
+
+    // Request permissions first
+    const hasPermissions = await this.requestBluetoothPermissions();
+    if (!hasPermissions) {
+      runInAction(() => {
+        this.error = 'Bluetooth permissions not granted';
+      });
       return;
     }
 
