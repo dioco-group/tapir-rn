@@ -96,6 +96,12 @@ class VoiceService {
   // Last recorded clip info (observable for UI)
   lastClipInfo: VoiceClipInfo | null = null;
   
+  // Live stats (observable, updated during recording)
+  livePacketCount: number = 0;
+  liveBytesReceived: number = 0;
+  liveSequenceGaps: number = 0;
+  liveRecordingStart: number = 0;
+  
   // Last clip raw PCM data (for playback)
   private lastClipPcm: Int16Array | null = null;
   
@@ -137,13 +143,20 @@ class VoiceService {
   handleVoiceStart(): void {
     console.log('[VoiceService] Voice stream started');
     
+    const startTime = Date.now();
+    
     runInAction(() => {
       this.state = 'listening';
       this.currentSession = {
-        startTime: Date.now(),
+        startTime,
         packets: [],
         ended: false,
       };
+      // Reset live stats
+      this.livePacketCount = 0;
+      this.liveBytesReceived = 0;
+      this.liveSequenceGaps = 0;
+      this.liveRecordingStart = startTime;
     });
     
     // Reset buffers
@@ -181,6 +194,9 @@ class VoiceService {
       const gap = Math.abs(sequence - this.expectedSequence);
       console.warn(`[VoiceService] Sequence gap: expected ${this.expectedSequence}, got ${sequence} (gap: ${gap})`);
       this.sequenceGaps += gap;
+      runInAction(() => {
+        this.liveSequenceGaps += gap;
+      });
     }
     this.expectedSequence = (sequence + 1) & 0xFFFF;
 
@@ -192,6 +208,12 @@ class VoiceService {
     };
     this.currentSession.packets.push(packet);
     this.opusFrames.push(opusData);
+
+    // Update live stats
+    runInAction(() => {
+      this.livePacketCount++;
+      this.liveBytesReceived += opusData.length;
+    });
 
     // Decode Opus to PCM
     try {

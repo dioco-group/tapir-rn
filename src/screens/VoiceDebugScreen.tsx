@@ -13,11 +13,35 @@ import { voiceService, VoiceState, VoiceClipInfo } from '../services/VoiceServic
 const VoiceDebugScreen: React.FC = observer(() => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [liveDuration, setLiveDuration] = useState(0);
 
   const state = voiceService.state;
   const clipInfo = voiceService.lastClipInfo;
   const hasClip = voiceService.hasClip();
   const lastResult = voiceService.lastResult;
+
+  // Live stats from VoiceService
+  const livePacketCount = voiceService.livePacketCount;
+  const liveBytesReceived = voiceService.liveBytesReceived;
+  const liveSequenceGaps = voiceService.liveSequenceGaps;
+  const liveRecordingStart = voiceService.liveRecordingStart;
+
+  // Update live duration every 100ms while recording
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    
+    if (state === 'listening' && liveRecordingStart > 0) {
+      interval = setInterval(() => {
+        setLiveDuration(Date.now() - liveRecordingStart);
+      }, 100);
+    } else {
+      setLiveDuration(0);
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [state, liveRecordingStart]);
 
   const handlePlayClip = async () => {
     if (isPlaying) return;
@@ -73,6 +97,38 @@ const VoiceDebugScreen: React.FC = observer(() => {
           Press and hold KEY2 on Tapir to record
         </Text>
       </View>
+
+      {/* Live Stats (shown while recording) */}
+      {state === 'listening' && (
+        <View style={[styles.section, styles.liveSection]}>
+          <Text style={styles.sectionTitle}>📡 Live Stats</Text>
+          <View style={styles.liveStatsGrid}>
+            <View style={styles.liveStat}>
+              <Text style={styles.liveStatValue}>{livePacketCount}</Text>
+              <Text style={styles.liveStatLabel}>Packets</Text>
+            </View>
+            <View style={styles.liveStat}>
+              <Text style={styles.liveStatValue}>{formatBytes(liveBytesReceived)}</Text>
+              <Text style={styles.liveStatLabel}>Data</Text>
+            </View>
+            <View style={styles.liveStat}>
+              <Text style={styles.liveStatValue}>{formatDuration(liveDuration)}</Text>
+              <Text style={styles.liveStatLabel}>Duration</Text>
+            </View>
+            <View style={styles.liveStat}>
+              <Text style={[styles.liveStatValue, liveSequenceGaps > 0 && styles.warnText]}>
+                {liveSequenceGaps}
+              </Text>
+              <Text style={styles.liveStatLabel}>Gaps</Text>
+            </View>
+          </View>
+          {livePacketCount > 0 && (
+            <Text style={styles.liveRate}>
+              ~{((liveBytesReceived / (liveDuration / 1000)) / 1000 * 8).toFixed(1)} kbps
+            </Text>
+          )}
+        </View>
+      )}
 
       {/* Last Clip Info */}
       <View style={styles.section}>
@@ -205,6 +261,40 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
     marginTop: 4,
+  },
+  liveSection: {
+    backgroundColor: '#1a3a1a',
+    borderColor: '#4CAF50',
+    borderWidth: 1,
+  },
+  liveStatsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  liveStat: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  liveStatValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#4CAF50',
+    fontFamily: 'monospace',
+  },
+  liveStatLabel: {
+    fontSize: 11,
+    color: '#888',
+    marginTop: 2,
+  },
+  liveRate: {
+    fontSize: 12,
+    color: '#4CAF50',
+    textAlign: 'center',
+    marginTop: 12,
+    fontFamily: 'monospace',
+  },
+  warnText: {
+    color: '#FF9800',
   },
   infoGrid: {
     gap: 8,
