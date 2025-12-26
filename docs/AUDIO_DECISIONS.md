@@ -157,13 +157,21 @@ When a notification arrives, alert on both phone AND Tapir:
 
 ### Why
 - User might not have phone in pocket
-- Phone might be on silent, but Tapir can still alert
 - Redundancy is good for important alerts
+
+### Important: Respect Phone's Sound Profile
+Tapir mirrors the phone's ringer mode:
+- **Normal mode**: Tapir plays sound + LRA haptic
+- **Vibrate mode**: Tapir only uses LRA haptic (no sound)
+- **Silent mode**: Tapir is silent (no sound, no haptic)
+
+This ensures consistency - user sets phone to vibrate in a meeting, Tapir doesn't suddenly ring.
 
 ### Notes
 - Tapir only alerts if connected
 - Could add setting to disable one or the other
 - Notification content displayed on Tapir screen
+- Query phone ringer mode via `AudioManager.getRingerMode()`
 
 ---
 

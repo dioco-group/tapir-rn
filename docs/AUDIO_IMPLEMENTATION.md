@@ -62,9 +62,13 @@ interface BluetoothAudioModule {
   startSco(): Promise<void>;
   stopSco(): Promise<void>;
   
+  // Get phone ringer mode (normal, vibrate, silent)
+  getRingerMode(): Promise<'normal' | 'vibrate' | 'silent'>;
+  
   // Events
   addListener(event: 'deviceConnected' | 'deviceDisconnected', callback): void;
   addListener(event: 'headphonesChanged', callback): void;
+  addListener(event: 'ringerModeChanged', callback): void;
 }
 
 interface AudioDevice {
@@ -220,6 +224,7 @@ interface AudioState {
   tapirConnected: boolean;
   tapirAddress: string | null;
   screenOn: boolean;
+  ringerMode: 'normal' | 'vibrate' | 'silent';
 }
 
 class AudioRoutingService {
@@ -287,6 +292,20 @@ class AudioRoutingService {
         this.state.tapirWiredConnected = connected;
       });
       this.updateRouting();
+    });
+
+    // Ringer mode changes
+    audioEvents.addListener('ringerModeChanged', ({ mode }) => {
+      runInAction(() => {
+        this.state.ringerMode = mode;
+      });
+    });
+
+    // Initial ringer mode fetch
+    BluetoothAudio.getRingerMode().then((mode) => {
+      runInAction(() => {
+        this.state.ringerMode = mode;
+      });
     });
   }
 
@@ -373,6 +392,38 @@ class AudioRoutingService {
       ...this.state,
       currentRoute: this.getRoute('music'),
     };
+  }
+
+  /**
+   * Alert for notification - respects phone ringer mode
+   * Returns what action was taken
+   */
+  async alertNotification(): Promise<{ sound: boolean; haptic: boolean }> {
+    const { ringerMode, tapirConnected } = this.state;
+
+    // Respect phone's ringer mode
+    switch (ringerMode) {
+      case 'silent':
+        // No sound, no haptic on either device
+        return { sound: false, haptic: false };
+
+      case 'vibrate':
+        // Haptic only on both devices
+        if (tapirConnected) {
+          await bleService.sendHaptic('notification');
+        }
+        // Phone vibrates via system notification
+        return { sound: false, haptic: true };
+
+      case 'normal':
+      default:
+        // Sound + haptic on both
+        if (tapirConnected) {
+          await bleService.sendHaptic('notification');
+          // Sound plays via A2DP if Tapir is active device
+        }
+        return { sound: true, haptic: true };
+    }
   }
 }
 
